@@ -15,7 +15,7 @@
   <artifactId>webhook-delivery</artifactId>
   <version>0.1.0</version>
   <name>webhook-delivery</name>
-  <description>Webhook dispatch service: signed payloads, transactional outbox, retries, dead-letter, replay</description>
+  <description>Webhook ingestion service with a transactional outbox and polling worker</description>
 
   <properties>
     <java.version>21</java.version>

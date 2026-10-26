@@ -18,4 +18,6 @@ management:
       exposure:
         include: health
 webhooks:
-  dispatcher-enabled: true
+  poller-enabled: true
+  poll-interval: 1s
+  poll-batch-size: 100

@@ -15,9 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
  * The write side of the transactional outbox.
  *
  * <p>{@link #publish} must run inside the caller's transaction
- * ({@code MANDATORY}): the event and one {@code deliveries} row per subscribed
- * endpoint commit or roll back together with the caller's business change.
- * No message broker, no dual write.
+ * ({@code MANDATORY}): the event and its outbox row commit or roll back
+ * together with the caller's business change. No message broker, no dual write.
  */
 @Service
 public class EventPublisher {
@@ -29,7 +28,7 @@ public class EventPublisher {
         this.json = json;
     }
 
-    public record Published(UUID eventId, int deliveries) {}
+    public record Published(UUID eventId, UUID outboxId) {}
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Published publish(String type, JsonNode data) {
@@ -46,17 +45,11 @@ public class EventPublisher {
         } catch (Exception e) {
             throw new IllegalArgumentException("unserializable payload", e);
         }
-        jdbc.update("INSERT INTO events (id, type, body, created_at) VALUES (?, ?, ?, ?)", id, type, body,
-                java.sql.Timestamp.from(now));
-        int n = jdbc.update(
-                """
-                INSERT INTO deliveries (id, event_id, endpoint_id, status)
-                SELECT gen_random_uuid(), ?, e.id, 'pending'
-                FROM endpoints e
-                WHERE e.enabled AND (cardinality(e.event_types) = 0 OR ? = ANY (e.event_types))
-                """,
-                id,
-                type);
-        return new Published(id, n);
+        jdbc.update("INSERT INTO events (id, type, body, created_at) VALUES (?, ?, ?, ?)",
+                id, type, body, java.sql.Timestamp.from(now));
+        UUID outboxId = UUID.randomUUID();
+        jdbc.update("INSERT INTO outbox (id, event_id, status, created_at, updated_at) VALUES (?, ?, 'PENDING', ?, ?)",
+                outboxId, id, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now));
+        return new Published(id, outboxId);
     }
 }
